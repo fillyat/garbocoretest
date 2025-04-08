@@ -1,0 +1,13 @@
+if __name__ == "__main__":
+    import sys
+    try:
+        playerCount = int(sys.argv[1]) if len(sys.argv) > 1 else 5
+        roundTime = int(sys.argv[2]) if len(sys.argv) > 2 else 5
+        lives = int(sys.argv[3]) if len(sys.argv) > 3 else 3
+        gameStart(playerCount=playerCount, roundTime=roundTime, lives=lives)
+    except Exception as e:
+        print("Cause of exit:", e)
+    finally:
+        time.sleep(1)
+        spi.close()
+        GPIO.cleanup()
