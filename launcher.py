@@ -139,12 +139,12 @@ while True:
 draw_text_centered(f"Start Game", f"{speeds[speed_index]} | {player_count}P | {player_lives}L")
 time.sleep(2)
 
-# Run the game with selected parameters
-round_time = speed_times[speeds[speed_index]]
-subprocess.run(["python3", "nomusic.py", str(player_count), str(round_time), str(player_lives)])
-
-# Cleanup
+# Cleanup BEFORE running the game
 display_clear()
 send_command([0xAE])
 spi.close()
 GPIO.cleanup()
+
+# Run the game
+round_time = speed_times[speeds[speed_index]]
+subprocess.run(["python3", "nomusic.py", str(player_count), str(round_time), str(player_lives)])
