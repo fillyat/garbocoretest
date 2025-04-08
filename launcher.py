@@ -1,4 +1,4 @@
-# menu_launcher.py
+# launcher.py
 import time
 import RPi.GPIO as GPIO
 from PIL import Image, ImageDraw, ImageFont
@@ -38,10 +38,10 @@ def send_command(cmd_list):
 
 def display_img(image):
     data_slice = [[] for _ in range(8)]
-    if image.mode != '1':
-        image = image.convert('1')
-    if image.size != (128, 64):
-        image = image.resize((128, 64))
+    image = image.convert('1')
+    image = image.resize((128, 64))
+    # Invert image colors
+    image = Image.eval(image, lambda x: 255 - x)
 
     for p in range(8):
         data_set = []
@@ -61,7 +61,7 @@ def display_img(image):
         spi.xfer(data_slice[p])
 
 def display_clear():
-    blank_img = Image.new('1', (128, 64), 1)
+    blank_img = Image.new('1', (128, 64), 0)  # Inverted: fill with black
     display_img(blank_img)
 
 def wait_for_key(keys):
@@ -74,15 +74,24 @@ def wait_for_key(keys):
             return 'right'
         time.sleep(0.1)
 
-def draw_text_centered(text_top, text_bottom=""):
-    img = Image.new("1", (display_width, display_height), 1)
-    draw = ImageDraw.Draw(img)
+try:
+    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+except:
     font = ImageFont.load_default()
-    w1, h1 = draw.textsize(text_top, font=font)
-    draw.text(((display_width - w1) // 2, 10), text_top, font=font, fill=0)
+
+def draw_text_centered(text_top, text_bottom=""):
+    img = Image.new("1", (display_width, display_height), 0)  # Inverted: start with black
+    draw = ImageDraw.Draw(img)
+
+    bbox1 = draw.textbbox((0, 0), text_top, font=font)
+    w1, h1 = bbox1[2] - bbox1[0], bbox1[3] - bbox1[1]
+    draw.text(((display_width - w1) // 2, 10), text_top, font=font, fill=1)
+
     if text_bottom:
-        w2, h2 = draw.textsize(text_bottom, font=font)
-        draw.text(((display_width - w2) // 2, 30), text_bottom, font=font, fill=0)
+        bbox2 = draw.textbbox((0, 0), text_bottom, font=font)
+        w2, h2 = bbox2[2] - bbox2[0], bbox2[3] - bbox2[1]
+        draw.text(((display_width - w2) // 2, 30), text_bottom, font=font, fill=1)
+
     display_img(img)
 
 # Menu 1: Round Speed
@@ -113,13 +122,26 @@ while True:
     elif key == 'select':
         break
 
+# Menu 3: Player Lives
+player_lives = 3
+
+while True:
+    draw_text_centered("Player Lives:", str(player_lives))
+    key = wait_for_key(['left', 'right', 'select'])
+    if key == 'left' and player_lives > 1:
+        player_lives -= 1
+    elif key == 'right' and player_lives < 9:
+        player_lives += 1
+    elif key == 'select':
+        break
+
 # Final Confirmation Screen
-draw_text_centered(f"Start Game", f"{speeds[speed_index]} | {player_count} Players")
+draw_text_centered(f"Start Game", f"{speeds[speed_index]} | {player_count}P | {player_lives}L")
 time.sleep(2)
 
 # Run the game with selected parameters
 round_time = speed_times[speeds[speed_index]]
-subprocess.run(["python3", "cbreak.py", str(player_count), str(round_time), "3"])
+subprocess.run(["python3", "nomusic.py", str(player_count), str(round_time), str(player_lives)])
 
 # Cleanup
 display_clear()
