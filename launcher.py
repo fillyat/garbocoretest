@@ -1,29 +1,22 @@
 # launcher.py
 import time
-import RPi.GPIO as GPIO
-from PIL import Image, ImageDraw, ImageFont
 import subprocess
-
-# SH1106 DISPLAY SETUP (same as cbreak.py)
+from PIL import Image, ImageDraw, ImageFont
 import spidev
+import sys
+import tty
+import termios
+import select
 
+# Display setup
 display_width = 128
 display_height = 64
 
-# GPIO Mappings
-KEY_LEFT = 17   # A = Left / -
-KEY_SELECT = 27 # B = Select / Progress
-KEY_RIGHT = 22  # C = Right / +
-
-# Setup GPIO
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(KEY_LEFT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(KEY_SELECT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(KEY_RIGHT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-
 # SH1106 Display Pins (BCM)
+import RPi.GPIO as GPIO
 A0 = 25
 RESN = 24
+GPIO.setmode(GPIO.BCM)
 GPIO.setup(A0, GPIO.OUT, initial=GPIO.HIGH)
 GPIO.setup(RESN, GPIO.OUT, initial=GPIO.HIGH)
 
@@ -40,7 +33,6 @@ def display_img(image):
     data_slice = [[] for _ in range(8)]
     image = image.convert('1')
     image = image.resize((128, 64))
-    # Invert image colors
     image = Image.eval(image, lambda x: 255 - x)
 
     for p in range(8):
@@ -61,18 +53,26 @@ def display_img(image):
         spi.xfer(data_slice[p])
 
 def display_clear():
-    blank_img = Image.new('1', (128, 64), 0)  # Inverted: fill with black
+    blank_img = Image.new('1', (128, 64), 0)
     display_img(blank_img)
 
 def wait_for_key(keys):
-    while True:
-        if GPIO.input(KEY_LEFT) == GPIO.LOW and 'left' in keys:
-            return 'left'
-        elif GPIO.input(KEY_SELECT) == GPIO.LOW and 'select' in keys:
-            return 'select'
-        elif GPIO.input(KEY_RIGHT) == GPIO.LOW and 'right' in keys:
-            return 'right'
-        time.sleep(0.1)
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    tty.setcbreak(fd)
+    try:
+        while True:
+            rlist, _, _ = select.select([sys.stdin], [], [], 0.1)
+            if rlist:
+                ch = sys.stdin.read(1).lower()
+                if ch == 'a' and 'left' in keys:
+                    return 'left'
+                elif ch == 'b' and 'select' in keys:
+                    return 'select'
+                elif ch == 'c' and 'right' in keys:
+                    return 'right'
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 try:
     font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
@@ -80,7 +80,7 @@ except:
     font = ImageFont.load_default()
 
 def draw_text_centered(text_top, text_bottom=""):
-    img = Image.new("1", (display_width, display_height), 0)  # Inverted: start with black
+    img = Image.new("1", (display_width, display_height), 0)
     draw = ImageDraw.Draw(img)
 
     bbox1 = draw.textbbox((0, 0), text_top, font=font)
@@ -97,7 +97,7 @@ def draw_text_centered(text_top, text_bottom=""):
 # Menu 1: Round Speed
 speeds = ["Slow", "Medium", "Fast"]
 speed_times = {"Slow": 15, "Medium": 10, "Fast": 5}
-speed_index = 1  # Default: Medium
+speed_index = 1
 
 while True:
     draw_text_centered("Round Speed:", speeds[speed_index])
