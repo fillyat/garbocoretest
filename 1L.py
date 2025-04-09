@@ -170,13 +170,13 @@ def main():
         settings = menu_loop()
         while True:
             # Run the game as a separate process.
-            subprocess.run(["python3", "game_refactored.py",
+            subprocess.run(["python3", "1G.py",
                             str(settings[0]), str(settings[1]), str(settings[2])])
             # When the game finishes, show the post-game menu.
             key = post_game_menu()
             if key == "A":
                 # Run the game again with the same settings.
-                subprocess.run(["python3", "nugame.py",
+                subprocess.run(["python3", "1G.py",
                                 str(settings[0]), str(settings[1]), str(settings[2])])
             elif key == "B":
                 # Go back to the options menu and pick new settings.
